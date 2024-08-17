@@ -59,6 +59,13 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/search-data", async (req, res) => {
+      const query = req.body;
+      const result = await productCollection.findOne({ title: query });
+      console.log("hit one");
+      res.send(result);
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
