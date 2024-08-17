@@ -59,11 +59,29 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/search-data", async (req, res) => {
-      const query = req.body;
-      const result = await productCollection.findOne({ title: query });
-      console.log("hit one");
-      res.send(result);
+    app.post("/search-data", async (req, res) => {
+      try {
+        const { title } = req.body;
+
+        if (!title) {
+          return res.status(400).send("search term is required");
+        }
+
+        const regex = new RegExp(title, "i");
+
+        const result = await productCollection
+          .find({ title: { $regex: regex } })
+          .toArray();
+
+        if (result.length > 0) {
+          res.send(result);
+        } else {
+          return res.status(404).send("No data found");
+        }
+      } catch (error) {
+        console.error("Error searching for data:", error);
+        res.status(500).send("An error occurred while searching for data.");
+      }
     });
 
     await client.db("admin").command({ ping: 1 });
