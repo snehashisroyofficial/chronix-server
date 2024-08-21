@@ -10,7 +10,7 @@ const port = process.env.PORT || 5000;
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://chronix-client.vercel.app"],
     credentials: true,
   })
 );
@@ -45,42 +45,41 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/pagination", async (req, res) => {
-      const page = parseInt(req.query.page);
-      const size = parseInt(req.query.size);
-      // console.log(query);
-
-      const result = await productCollection
-        .find()
-        .skip(page * size)
-        .limit(size)
-        .toArray();
-
-      res.send(result);
-    });
-
-    app.post("/search-data", async (req, res) => {
+    app.post("/pagination", async (req, res) => {
       try {
-        const { title } = req.body;
+        const page = parseInt(req.query.page, 10) || 0;
+        const size = parseInt(req.query.size, 10) || 10;
 
-        if (!title) {
-          return res.status(400).send("search term is required");
-        }
+        const { price, sort, search } = req.body;
 
-        const regex = new RegExp(title, "i");
+        const min = parseInt(price?.min, 10) || 0;
+        const max = parseInt(price?.max, 10) || Infinity;
+
+        const filter = {
+          ...(min >= 0 && max < Infinity
+            ? { discounted_price: { $gte: min, $lte: max } }
+            : {}),
+          ...(search ? { title: { $regex: search, $options: "i" } } : {}), // Search term
+        };
+
+        const sortOption =
+          sort === "asc"
+            ? { discounted_price: 1 }
+            : sort === "dsc"
+            ? { discounted_price: -1 }
+            : {};
 
         const result = await productCollection
-          .find({ title: { $regex: regex } })
+          .find(filter)
+          .sort(sortOption)
+          .skip(page * size)
+          .limit(size)
           .toArray();
 
-        if (result.length > 0) {
-          res.send(result);
-        } else {
-          return res.status(404).send("No data found");
-        }
+        res.send(result);
       } catch (error) {
-        console.error("Error searching for data:", error);
-        res.status(500).send("An error occurred while searching for data.");
+        console.error("Error handling /pagination request:", error);
+        res.status(500).send("Something went wrong");
       }
     });
 
